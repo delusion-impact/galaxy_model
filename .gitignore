@@ -1,5 +1,16 @@
+# Виртуальное окружение
+.venv/
+venv/
+
+# PyCharm / IDE
+.idea/
+*.iml
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Node.js
 node_modules/
-.next/
 dist/
-build/
-*.log
