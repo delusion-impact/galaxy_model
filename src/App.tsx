@@ -1,16 +1,27 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
+interface MoonData {
+  name: string;
+  nameRu: string;
+  orbitRadius: number;
+  size: number;
+  color: string;
+  speed: number; // relative orbital speed multiplier
+  description?: string;
+}
+
 interface PlanetData {
   name: string;
   nameRu: string;
-  diameter: number; // km
-  distanceFromSun: number; // million km
-  orbitalPeriod: number; // Earth days
-  orbitRadius: number; // pixels for visualization
-  size: number; // pixels for visualization
+  diameter: number;
+  distanceFromSun: number;
+  orbitalPeriod: number;
+  orbitRadius: number;
+  size: number;
   color: string;
   glowColor: string;
   description: string;
+  moons: MoonData[];
 }
 
 const planets: PlanetData[] = [
@@ -25,6 +36,7 @@ const planets: PlanetData[] = [
     color: '#b5b5b5',
     glowColor: '#8a8a8a',
     description: 'Самая маленькая и ближайшая к Солнцу планета.',
+    moons: [],
   },
   {
     name: 'Venus',
@@ -37,6 +49,7 @@ const planets: PlanetData[] = [
     color: '#e8cda0',
     glowColor: '#d4a84b',
     description: 'Самая горячая планета с плотной атмосферой из CO₂.',
+    moons: [],
   },
   {
     name: 'Earth',
@@ -49,6 +62,9 @@ const planets: PlanetData[] = [
     color: '#4da6ff',
     glowColor: '#2980b9',
     description: 'Наш дом — единственная планета с известной жизнью.',
+    moons: [
+      { name: 'Moon', nameRu: 'Луна', orbitRadius: 16, size: 3, color: '#d4d4d4', speed: 1.0 },
+    ],
   },
   {
     name: 'Mars',
@@ -61,6 +77,10 @@ const planets: PlanetData[] = [
     color: '#e74c3c',
     glowColor: '#c0392b',
     description: 'Красная планета — цель будущих межпланетных миссий.',
+    moons: [
+      { name: 'Phobos', nameRu: 'Фобос', orbitRadius: 12, size: 2, color: '#a89080', speed: 2.5 },
+      { name: 'Deimos', nameRu: 'Деймос', orbitRadius: 17, size: 1.5, color: '#b0a090', speed: 1.2 },
+    ],
   },
   {
     name: 'Jupiter',
@@ -73,6 +93,12 @@ const planets: PlanetData[] = [
     color: '#e8a954',
     glowColor: '#d4843a',
     description: 'Крупнейшая планета — газовый гигант с Большим Красным Пятном.',
+    moons: [
+      { name: 'Io', nameRu: 'Ио', orbitRadius: 20, size: 3, color: '#f5e642', speed: 3.0 },
+      { name: 'Europa', nameRu: 'Европа', orbitRadius: 26, size: 2.5, color: '#c8dce8', speed: 2.0 },
+      { name: 'Ganymede', nameRu: 'Ганимед', orbitRadius: 33, size: 3.5, color: '#b8a888', speed: 1.2 },
+      { name: 'Callisto', nameRu: 'Каллисто', orbitRadius: 40, size: 3, color: '#8a7a6a', speed: 0.7 },
+    ],
   },
   {
     name: 'Saturn',
@@ -85,6 +111,11 @@ const planets: PlanetData[] = [
     color: '#f0d58c',
     glowColor: '#c9a83a',
     description: 'Знаменита своими великолепными кольцами из льда и камней.',
+    moons: [
+      { name: 'Titan', nameRu: 'Титан', orbitRadius: 28, size: 3.5, color: '#e8c870', speed: 1.0 },
+      { name: 'Rhea', nameRu: 'Рея', orbitRadius: 22, size: 2, color: '#c0c0c0', speed: 1.8 },
+      { name: 'Enceladus', nameRu: 'Энцелад', orbitRadius: 17, size: 1.5, color: '#f0f0ff', speed: 3.0 },
+    ],
   },
   {
     name: 'Uranus',
@@ -97,6 +128,11 @@ const planets: PlanetData[] = [
     color: '#7ecfc0',
     glowColor: '#45b7a0',
     description: 'Ледяной гигант, вращающийся «на боку» — ось наклонена на 98°.',
+    moons: [
+      { name: 'Titania', nameRu: 'Титания', orbitRadius: 20, size: 2.5, color: '#c8c8c8', speed: 1.0 },
+      { name: 'Oberon', nameRu: 'Оберон', orbitRadius: 26, size: 2.5, color: '#b0b0b0', speed: 0.7 },
+      { name: 'Miranda', nameRu: 'Миранда', orbitRadius: 14, size: 1.5, color: '#d0d0d0', speed: 2.5 },
+    ],
   },
   {
     name: 'Neptune',
@@ -109,16 +145,31 @@ const planets: PlanetData[] = [
     color: '#3498db',
     glowColor: '#2471a3',
     description: 'Самая далёкая планета с самыми сильными ветрами в Солнечной системе.',
+    moons: [
+      { name: 'Triton', nameRu: 'Тритон', orbitRadius: 20, size: 3, color: '#a8c8d8', speed: 1.0 },
+      { name: 'Nereid', nameRu: 'Нереида', orbitRadius: 28, size: 1.5, color: '#909090', speed: 0.3 },
+    ],
   },
 ];
+
+// Total moon count for initializing moon angles
+const totalMoonsCount = planets.reduce((sum, p) => sum + p.moons.length, 0);
 
 export default function App() {
   const [isPlaying, setIsPlaying] = useState(true);
   const [speed, setSpeed] = useState(1);
   const [selectedPlanet, setSelectedPlanet] = useState<PlanetData | null>(null);
+  const [showMoons, setShowMoons] = useState(true);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [zoomTarget, setZoomTarget] = useState<{ x: number; y: number } | null>(null);
+
   const [angles, setAngles] = useState<number[]>(() =>
     planets.map(() => Math.random() * Math.PI * 2)
   );
+  const [moonAngles, setMoonAngles] = useState<number[]>(() =>
+    Array.from({ length: totalMoonsCount }, () => Math.random() * Math.PI * 2)
+  );
+
   const [hoveredPlanet, setHoveredPlanet] = useState<string | null>(null);
   const animationRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
@@ -133,12 +184,31 @@ export default function App() {
       if (isPlaying) {
         setAngles((prev) =>
           prev.map((angle, i) => {
-            // Base speed: complete orbit proportional to orbital period
-            // Earth completes orbit in ~20 seconds at speed=1
             const baseSpeed = (2 * Math.PI) / (planets[i].orbitalPeriod * 0.055);
             return angle + baseSpeed * delta * speed * 0.06;
           })
         );
+
+        setMoonAngles((prev) => {
+          let moonIdx = 0;
+          return prev.map((angle) => {
+            // Find which planet this moon belongs to
+            let cumIdx = 0;
+            for (let p = 0; p < planets.length; p++) {
+              for (let m = 0; m < planets[p].moons.length; m++) {
+                if (cumIdx === moonIdx) {
+                  const moonSpeed = planets[p].moons[m].speed;
+                  const baseSpeed = (2 * Math.PI) / (planets[p].orbitalPeriod * 0.055);
+                  const result = angle + baseSpeed * moonSpeed * delta * speed * 0.4;
+                  moonIdx++;
+                  return result;
+                }
+                cumIdx++;
+              }
+            }
+            return angle;
+          });
+        });
       }
 
       animationRef.current = requestAnimationFrame(animate);
@@ -151,7 +221,38 @@ export default function App() {
     return () => cancelAnimationFrame(animationRef.current);
   }, [animate]);
 
+  // Update zoom target when planet moves
+  useEffect(() => {
+    if (isZoomed && selectedPlanet) {
+      const planetIdx = planets.findIndex((p) => p.name === selectedPlanet.name);
+      if (planetIdx >= 0) {
+        const x = Math.cos(angles[planetIdx]) * selectedPlanet.orbitRadius;
+        const y = Math.sin(angles[planetIdx]) * selectedPlanet.orbitRadius;
+        setZoomTarget({ x, y });
+      }
+    }
+  }, [angles, isZoomed, selectedPlanet]);
+
+  const handleZoom = () => {
+    if (!selectedPlanet) return;
+    if (isZoomed) {
+      setIsZoomed(false);
+      setZoomTarget(null);
+    } else {
+      setIsZoomed(true);
+    }
+  };
+
+  // Reset zoom when deselecting planet
+  useEffect(() => {
+    if (!selectedPlanet) {
+      setIsZoomed(false);
+      setZoomTarget(null);
+    }
+  }, [selectedPlanet]);
+
   const getSpeedLabel = (s: number): string => {
+    if (s === 0.01) return '0.01×';
     if (s === 0.25) return '0.25×';
     if (s === 0.5) return '0.5×';
     if (s === 1) return '1×';
@@ -165,7 +266,6 @@ export default function App() {
     return num.toLocaleString('ru-RU');
   };
 
-  // Generate stars
   const stars = useRef(
     Array.from({ length: 200 }, () => ({
       x: Math.random() * 100,
@@ -175,6 +275,59 @@ export default function App() {
       animationDelay: Math.random() * 3,
     }))
   ).current;
+
+  // Calculate zoom transform
+  const getZoomTransform = () => {
+    if (!isZoomed || !zoomTarget) return 'scale(1) translate(0, 0)';
+    return `scale(3.5) translate(${-zoomTarget.x}px, ${-zoomTarget.y}px)`;
+  };
+
+  // Render moons for a planet
+  const renderMoons = (planet: PlanetData, planetIdx: number) => {
+    if (!showMoons || planet.moons.length === 0) return null;
+
+    let moonStartIdx = 0;
+    for (let i = 0; i < planetIdx; i++) {
+      moonStartIdx += planets[i].moons.length;
+    }
+
+    return planet.moons.map((moon, moonIdx) => {
+      const globalMoonIdx = moonStartIdx + moonIdx;
+      const moonAngle = moonAngles[globalMoonIdx];
+      const mx = Math.cos(moonAngle) * moon.orbitRadius;
+      const my = Math.sin(moonAngle) * moon.orbitRadius;
+
+      return (
+        <div key={moon.name}>
+          {/* Moon orbit path */}
+          <div
+            className="absolute rounded-full border border-white/5"
+            style={{
+              width: `${moon.orbitRadius * 2}px`,
+              height: `${moon.orbitRadius * 2}px`,
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+            }}
+          />
+          {/* Moon body */}
+          <div
+            className="absolute rounded-full"
+            style={{
+              width: `${moon.size}px`,
+              height: `${moon.size}px`,
+              left: `calc(50% + ${mx}px - ${moon.size / 2}px)`,
+              top: `calc(50% + ${my}px - ${moon.size / 2}px)`,
+              background: `radial-gradient(circle at 35% 35%, ${moon.color}, ${moon.color}90)`,
+              boxShadow: `0 0 3px 1px ${moon.color}40`,
+              zIndex: 15,
+            }}
+            title={moon.nameRu}
+          />
+        </div>
+      );
+    });
+  };
 
   return (
     <div className="w-full h-screen bg-[#0a0a1a] overflow-hidden relative flex flex-col">
@@ -208,11 +361,17 @@ export default function App() {
       </div>
 
       {/* Solar System Container */}
-      <div
-        ref={containerRef}
-        className="relative flex-1 flex items-center justify-center"
-      >
-        <div className="relative" style={{ width: '920px', height: '920px' }}>
+      <div className="relative flex-1 flex items-center justify-center overflow-hidden">
+        <div
+          ref={containerRef}
+          className="relative transition-transform duration-700 ease-in-out"
+          style={{
+            width: '920px',
+            height: '920px',
+            transform: getZoomTransform(),
+            transformOrigin: 'center center',
+          }}
+        >
           {/* Sun */}
           <div
             className="absolute rounded-full cursor-pointer"
@@ -243,7 +402,7 @@ export default function App() {
             />
           ))}
 
-          {/* Planets */}
+          {/* Planets with Moons */}
           {planets.map((planet, i) => {
             const x = Math.cos(angles[i]) * planet.orbitRadius;
             const y = Math.sin(angles[i]) * planet.orbitRadius;
@@ -253,7 +412,7 @@ export default function App() {
             return (
               <div
                 key={planet.name}
-                className="absolute cursor-pointer transition-transform duration-200"
+                className="absolute cursor-pointer"
                 style={{
                   width: `${planet.size + 8}px`,
                   height: `${planet.size + 8}px`,
@@ -311,6 +470,22 @@ export default function App() {
                     {planet.nameRu}
                   </div>
                 )}
+
+                {/* Moons container - positioned relative to planet center */}
+                {showMoons && planet.moons.length > 0 && (
+                  <div
+                    className="absolute pointer-events-none"
+                    style={{
+                      width: `${planet.moons.length > 0 ? Math.max(...planet.moons.map(m => m.orbitRadius)) * 2 + 10 : 0}px`,
+                      height: `${planet.moons.length > 0 ? Math.max(...planet.moons.map(m => m.orbitRadius)) * 2 + 10 : 0}px`,
+                      left: '50%',
+                      top: '50%',
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                  >
+                    {renderMoons(planet, i)}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -328,7 +503,7 @@ export default function App() {
           </button>
           <div className="flex items-center gap-3 mb-3">
             <div
-              className="w-10 h-10 rounded-full"
+              className="w-10 h-10 rounded-full flex-shrink-0"
               style={{
                 background: `radial-gradient(circle at 35% 35%, ${selectedPlanet.color}, ${selectedPlanet.glowColor})`,
                 boxShadow: `0 0 10px 3px ${selectedPlanet.color}60`,
@@ -353,7 +528,7 @@ export default function App() {
                 {formatNumber(selectedPlanet.distanceFromSun)} млн км
               </span>
             </div>
-            <div className="flex justify-between items-center py-1.5">
+            <div className="flex justify-between items-center py-1.5 border-b border-gray-700/50">
               <span className="text-gray-400 text-sm">🔄 Орбитальный период</span>
               <span className="text-white font-medium text-sm">
                 {selectedPlanet.orbitalPeriod >= 365
@@ -361,14 +536,22 @@ export default function App() {
                   : `${selectedPlanet.orbitalPeriod} дней`}
               </span>
             </div>
+            {selectedPlanet.moons.length > 0 && (
+              <div className="flex justify-between items-center py-1.5">
+                <span className="text-gray-400 text-sm">🌙 Спутники</span>
+                <span className="text-white font-medium text-sm">
+                  {selectedPlanet.moons.map((m) => m.nameRu).join(', ')}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Controls */}
       <div className="relative z-10 pb-4 pt-2 px-4">
-        <div className="max-w-2xl mx-auto bg-gray-900/80 backdrop-blur-md border border-gray-700 rounded-xl p-4 shadow-xl">
-          <div className="flex flex-wrap items-center justify-center gap-4">
+        <div className="max-w-3xl mx-auto bg-gray-900/80 backdrop-blur-md border border-gray-700 rounded-xl p-4 shadow-xl">
+          <div className="flex flex-wrap items-center justify-center gap-3">
             {/* Play/Pause */}
             <button
               onClick={() => setIsPlaying(!isPlaying)}
@@ -387,20 +570,67 @@ export default function App() {
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                     <polygon points="5,3 19,12 5,21" />
                   </svg>
-                  Воспроизведение
+                  Старт
                 </>
               )}
+            </button>
+
+            {/* Zoom Button */}
+            <button
+              onClick={handleZoom}
+              disabled={!selectedPlanet}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg ${
+                selectedPlanet
+                  ? isZoomed
+                    ? 'bg-amber-600 hover:bg-amber-500 text-white hover:shadow-amber-500/30'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white hover:shadow-emerald-500/30'
+                  : 'bg-gray-700 text-gray-500 cursor-not-allowed shadow-none'
+              }`}
+            >
+              {isZoomed ? (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    <line x1="8" y1="11" x2="14" y2="11" />
+                  </svg>
+                  Отдалить
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    <line x1="11" y1="8" x2="11" y2="14" />
+                    <line x1="8" y1="11" x2="14" y2="11" />
+                  </svg>
+                  Приблизить
+                </>
+              )}
+            </button>
+
+            {/* Moons Toggle */}
+            <button
+              onClick={() => setShowMoons(!showMoons)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg ${
+                showMoons
+                  ? 'bg-purple-600 hover:bg-purple-500 text-white hover:shadow-purple-500/30'
+                  : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+              }`}
+            >
+              <span className="text-lg">🌙</span>
+              {showMoons ? 'Спутники: ВКЛ' : 'Спутники: ВЫКЛ'}
             </button>
 
             {/* Speed Control */}
             <div className="flex items-center gap-2">
               <span className="text-gray-400 text-sm">Скорость:</span>
-              <div className="flex gap-1">
-                {[0.25, 0.5, 1, 2, 5, 10].map((s) => (
+              <div className="flex gap-1 flex-wrap justify-center">
+                {[0.01, 0.25, 0.5, 1, 2, 5, 10].map((s) => (
                   <button
                     key={s}
                     onClick={() => setSpeed(s)}
-                    className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
+                    className={`px-2 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
                       speed === s
                         ? 'bg-indigo-600 text-white shadow-md'
                         : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
@@ -432,6 +662,9 @@ export default function App() {
                   }}
                 />
                 {planet.nameRu}
+                {planet.moons.length > 0 && showMoons && (
+                  <span className="text-gray-500 text-[10px]">({planet.moons.length})</span>
+                )}
               </button>
             ))}
           </div>
