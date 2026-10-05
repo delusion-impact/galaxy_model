@@ -161,7 +161,6 @@ export default function App() {
   const [selectedPlanet, setSelectedPlanet] = useState<PlanetData | null>(null);
   const [showMoons, setShowMoons] = useState(true);
   const [isZoomed, setIsZoomed] = useState(false);
-  const [zoomTarget, setZoomTarget] = useState<{ x: number; y: number } | null>(null);
 
   const [angles, setAngles] = useState<number[]>(() =>
     planets.map(() => Math.random() * Math.PI * 2)
@@ -221,33 +220,15 @@ export default function App() {
     return () => cancelAnimationFrame(animationRef.current);
   }, [animate]);
 
-  // Update zoom target when planet moves
-  useEffect(() => {
-    if (isZoomed && selectedPlanet) {
-      const planetIdx = planets.findIndex((p) => p.name === selectedPlanet.name);
-      if (planetIdx >= 0) {
-        const x = Math.cos(angles[planetIdx]) * selectedPlanet.orbitRadius;
-        const y = Math.sin(angles[planetIdx]) * selectedPlanet.orbitRadius;
-        setZoomTarget({ x, y });
-      }
-    }
-  }, [angles, isZoomed, selectedPlanet]);
-
   const handleZoom = () => {
     if (!selectedPlanet) return;
-    if (isZoomed) {
-      setIsZoomed(false);
-      setZoomTarget(null);
-    } else {
-      setIsZoomed(true);
-    }
+    setIsZoomed(!isZoomed);
   };
 
   // Reset zoom when deselecting planet
   useEffect(() => {
     if (!selectedPlanet) {
       setIsZoomed(false);
-      setZoomTarget(null);
     }
   }, [selectedPlanet]);
 
@@ -276,10 +257,25 @@ export default function App() {
     }))
   ).current;
 
-  // Calculate zoom transform
-  const getZoomTransform = () => {
-    if (!isZoomed || !zoomTarget) return 'scale(1) translate(0, 0)';
-    return `scale(3.5) translate(${-zoomTarget.x}px, ${-zoomTarget.y}px)`;
+  // Calculate zoom transform — computed directly from current angles
+  const getZoomStyle = (): React.CSSProperties => {
+    if (!isZoomed || !selectedPlanet) {
+      return {
+        width: '920px',
+        height: '920px',
+        transform: 'scale(1)',
+        transformOrigin: 'center center',
+      };
+    }
+    const planetIdx = planets.findIndex((p) => p.name === selectedPlanet.name);
+    const x = Math.cos(angles[planetIdx]) * selectedPlanet.orbitRadius;
+    const y = Math.sin(angles[planetIdx]) * selectedPlanet.orbitRadius;
+    return {
+      width: '920px',
+      height: '920px',
+      transform: `scale(3.5) translate(${-x}px, ${-y}px)`,
+      transformOrigin: 'center center',
+    };
   };
 
   // Render moons for a planet
@@ -364,13 +360,8 @@ export default function App() {
       <div className="relative flex-1 flex items-center justify-center overflow-hidden">
         <div
           ref={containerRef}
-          className="relative transition-transform duration-700 ease-in-out"
-          style={{
-            width: '920px',
-            height: '920px',
-            transform: getZoomTransform(),
-            transformOrigin: 'center center',
-          }}
+          className="relative"
+          style={getZoomStyle()}
         >
           {/* Sun */}
           <div
@@ -435,12 +426,10 @@ export default function App() {
                     height: `${planet.size}px`,
                     margin: '4px',
                     background: `radial-gradient(circle at 35% 35%, ${planet.color}, ${planet.glowColor})`,
-                    boxShadow: isSelected
-                      ? `0 0 12px 4px ${planet.color}, 0 0 24px 8px ${planet.color}80`
-                      : isHovered
+                    boxShadow: isHovered
                       ? `0 0 8px 3px ${planet.color}90`
                       : `0 0 4px 1px ${planet.color}60`,
-                    transform: isHovered ? 'scale(1.3)' : isSelected ? 'scale(1.2)' : 'scale(1)',
+                    transform: isHovered ? 'scale(1.3)' : 'scale(1)',
                   }}
                 />
                 {/* Saturn rings */}
