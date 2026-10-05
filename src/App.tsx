@@ -181,26 +181,36 @@ export default function App() {
       lastTimeRef.current = timestamp;
 
       if (isPlaying) {
+        // Earth completes 1 orbit in 60 seconds at speed=1
+        const EARTH_ORBIT_MS = 60000;
+        const EARTH_PERIOD_DAYS = 365.25;
+
         setAngles((prev) =>
           prev.map((angle, i) => {
-            const baseSpeed = (2 * Math.PI) / (planets[i].orbitalPeriod * 0.055);
-            return angle + baseSpeed * delta * speed * 0.06;
+            // Angular speed proportional to Earth: faster for inner planets, slower for outer
+            const angularSpeed =
+              ((2 * Math.PI) / EARTH_ORBIT_MS) *
+              (EARTH_PERIOD_DAYS / planets[i].orbitalPeriod);
+            return angle + angularSpeed * delta * speed;
           })
         );
+
+        // Moon (Луна) completes 1 orbit in 5 seconds at speed=1;
+        // other moons are relative to that via moon.speed multiplier
+        const MOON_BASE_ORBIT_MS = 5000;
 
         setMoonAngles((prev) => {
           let moonIdx = 0;
           return prev.map((angle) => {
-            // Find which planet this moon belongs to
             let cumIdx = 0;
             for (let p = 0; p < planets.length; p++) {
               for (let m = 0; m < planets[p].moons.length; m++) {
                 if (cumIdx === moonIdx) {
-                  const moonSpeed = planets[p].moons[m].speed;
-                  const baseSpeed = (2 * Math.PI) / (planets[p].orbitalPeriod * 0.055);
-                  const result = angle + baseSpeed * moonSpeed * delta * speed * 0.4;
+                  const moonMultiplier = planets[p].moons[m].speed;
+                  const angularSpeed =
+                    ((2 * Math.PI) / MOON_BASE_ORBIT_MS) * moonMultiplier;
                   moonIdx++;
-                  return result;
+                  return angle + angularSpeed * delta * speed;
                 }
                 cumIdx++;
               }
