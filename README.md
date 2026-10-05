@@ -2,7 +2,7 @@
 
 Интерактивная обучающая демонстрация Солнечной системы, созданная с использованием React, TypeScript и Tailwind CSS.
 
-![Solar System Demo](https://image.qwenlm.ai/generated-images/c5336bf4-e9f0-49ab-add5-48e722f16734/_result.png)
+![Solar System Demo](./public/solar-system-preview.svg)
 
 ## ✨ Возможности
 
